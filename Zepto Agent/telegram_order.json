@@ -1,0 +1,178 @@
+{
+  "name": "telegram_order",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "b862b315-bb6e-42cd-b7cf-a401d57fb7f6",
+      "name": "Telegram Trigger",
+      "webhookId": "ff0574d5-9184-4707-bd52-039dd851f7d1",
+      "credentials": {
+        "telegramApi": {
+          "id": "cYC2QnMXkpgdsfe6",
+          "name": "Boybabybot_bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d9f866ef-e697-4461-ae07-12bc14c7cb9d",
+              "name": "itemToOrder",
+              "value": "={{ $json.message.text }}",
+              "type": "string"
+            },
+            {
+              "id": "fa4b1195-dfda-4db0-9157-edce9fea20a2",
+              "name": "chatid",
+              "value": "={{ $json.message.from.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        0
+      ],
+      "id": "510e8b27-f3b2-4139-bbcb-cfa5c8b8f114",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://06c3c631d593.ngrok-free.app/api/full-flow",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "search_term",
+              "value": "={{ $json.itemToOrder }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        448,
+        0
+      ],
+      "id": "01a3c674-e401-4853-9a81-fc847462488c",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Edit Fields').item.json.chatid }}",
+        "text": "={{ $json.results[5].message }}\n{{ $json.results[5].status }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        656,
+        0
+      ],
+      "id": "aed8a913-372c-4ee7-a13d-0f04f5a2fc1f",
+      "name": "Send a text message",
+      "webhookId": "bb7ae81f-945f-4c2e-a306-bb9ea6d1d2ae",
+      "credentials": {
+        "telegramApi": {
+          "id": "cYC2QnMXkpgdsfe6",
+          "name": "Boybabybot_bot"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Telegram Trigger": [
+      {
+        "json": {
+          "update_id": 188809994,
+          "message": {
+            "message_id": 54,
+            "from": {
+              "id": 7825139574,
+              "is_bot": false,
+              "first_name": "Bolarix",
+              "last_name": "Tech",
+              "language_code": "en"
+            },
+            "chat": {
+              "id": 7825139574,
+              "first_name": "Bolarix",
+              "last_name": "Tech",
+              "type": "private"
+            },
+            "date": 1762597264,
+            "text": "aavin"
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1ea7f545-d910-4bd4-918b-92b9d432d217",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "391ccf06240767a70e415db25ca1487c5b245e4a473dd0cfcdd50bf42284853d"
+  },
+  "id": "KtkWxko4KEfiyL1B",
+  "tags": []
+}

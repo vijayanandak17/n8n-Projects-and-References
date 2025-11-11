@@ -1,0 +1,270 @@
+{
+  "name": "aiData",
+  "nodes": [
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1648,
+        400
+      ],
+      "id": "1b6b5e84-73f9-4519-83ba-3c78f64c96f1",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "1ZRXiDzT0Bz6GVBj",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are \"ResearchAgent\", an advanced AI research assistant integrated into an n8n workflow.\n\nYou can research and explain topics related to:\n- Artificial Intelligence (AI), Machine Learning (ML), and Deep Learning\n- Generative AI (LLMs, text-to-image, text-to-speech, etc.)\n- AI frameworks and tools (Flowise, LangChain, OpenAI, Anthropic, Hugging Face, MCP, etc.)\n- AI integrations, agents, context protocols, and reasoning systems\n- Workflow automation and orchestration tools (n8n, Zapier, Make, etc.)\n- Building AI workflows or automations using n8n or Flowise\n\nIf a user's question is unrelated to these areas, respond with:\n{\n  \"error\": \"This topic is outside my research domain. Please ask about AI, Generative AI, or workflow automation (like n8n or Flowise).\"\n}\n\nWhen the topic is valid, generate your response as a **single JSON object** with this structure:\n\n{\n  \"topic\": \"string - concise research title reformulated from the user query\",\n  \"summary\": \"string - short (100–150 words) research explanation, factual and clear\",\n  \"key_insights\": [\n    \"string - important insight or concept 1\",\n    \"string - important insight or concept 2\",\n    \"string - important insight or concept 3\"\n  ],\n  \"recent_developments\": [\n    \"string - recent update, event, or release (preferably 2024–2025)\"\n  ],\n  \"sources\": [\n    {\n      \"title\": \"string - source name or reference\",\n      \"url\": \"string - valid URL to documentation or article\"\n    }\n  ]\n}\n\nGuidelines:\n- Output only JSON (no Markdown, text, or explanations).\n- Use factual and recent information (2023–2025).\n- Prefer real and verifiable sources (official docs, GitHub, reputable news).\n- Be concise but informative — this content will be parsed and emailed automatically.\n- Do not hallucinate or make up URLs.\n\n\n\n{users message} : {{ $json.message.text }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -1616,
+        208
+      ],
+      "id": "6901b478-80c9-4ae0-8ac8-cbc9b71b7f3f",
+      "name": "MainAgent",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cd215bf0-20de-4c05-9d8a-71acf9ceeadc",
+              "leftValue": "={{ $json.error && $json.error.includes('This topic is outside my research domain') }}\n\n",
+              "rightValue": "=false\n",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1040,
+        208
+      ],
+      "id": "3e72489f-4556-4635-9b6b-5e34506f6488",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "sendTo": "=paari24@gmail.com",
+        "subject": "={{ $('parse_Ai_Response').item.json.topic }}",
+        "message": "={{ $('mailFormat_Procesing').item.json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -592,
+        112
+      ],
+      "id": "c7255611-a4f5-486a-80a4-7acaef150689",
+      "name": "Send a message",
+      "webhookId": "9d29b827-c5a8-4800-b008-218e102a9002",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "qX4b8LIs14nLT93k",
+          "name": "B24_mailaccount"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the agent output and extract the actual JSON\nreturn $input.all().map(item => {\n  let raw = item.json.output;\n\n  // Remove markdown code block markers (```json and ```)\n  raw = raw.replace(/^```json\\n?/, '').replace(/```$/, '').trim();\n\n  let parsed;\n  try {\n    parsed = JSON.parse(raw);\n  } catch (error) {\n    parsed = { error: 'Failed to parse agent output', raw };\n  }\n\n  return { json: parsed };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1264,
+        208
+      ],
+      "id": "5ab02cdb-2cff-484c-942b-fa8b668d9c90",
+      "name": "parse_Ai_Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get AI Research Agent parsed output\nconst data = $input.first().json;\n\n// Extract key research fields safely\nconst topic = data.topic || 'Untitled AI Topic';\nconst summary = data.summary || 'No summary available.';\nconst keyInsights = Array.isArray(data.key_insights) ? data.key_insights : [];\nconst recent = Array.isArray(data.recent_developments) ? data.recent_developments : [];\nconst sources = Array.isArray(data.sources) ? data.sources : [];\n\n// Current date for report header\nconst currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });\n\n// 🔧 Insert your logo URL here\nconst logoUrl = 'https://storage.files-vault.com/images/20250627192438_original__media_431.png';\nconst companyName = 'AI Research Assistant'; // shown below the logo\n\n// Build HTML content (non-clickable links + red color theme)\nlet html = `\n  <div style=\"max-width:700px;margin:0 auto;background:#ffffff;padding:25px;\n              font-family:Arial,sans-serif;color:#333;line-height:1.6;\">\n\n    <!-- Header Section with Logo -->\n    <div style=\"text-align:center;margin-bottom:20px;\">\n      <img src=\"${logoUrl}\" alt=\"${companyName} Logo\" \n           style=\"max-width:120px;margin-bottom:10px;\">\n      <h2 style=\"color:#cc0000;margin:0;\">${companyName}</h2>\n      <p style=\"color:#666;font-size:13px;\">${currentDate}</p>\n    </div>\n\n    <hr style=\"border:none;border-top:2px solid #cc0000;margin:15px 0;\">\n\n    <div style=\"margin-top:10px;\">\n      <h3 style=\"color:#cc0000;\">Topic:</h3>\n      <p><strong>${topic}</strong></p>\n    </div>\n\n    <div style=\"border-top:2px solid #cc0000;margin-top:25px;padding-top:20px;\">\n      <h3 style=\"color:#cc0000;\">Summary</h3>\n      <p>${summary}</p>\n    </div>\n\n    <div style=\"border-top:2px solid #eee;margin-top:25px;padding-top:20px;\">\n      <h3 style=\"color:#cc0000;\">Key Insights</h3>\n      <ul>\n        ${keyInsights.map(i => `<li>${i}</li>`).join('')}\n      </ul>\n    </div>\n\n    <div style=\"border-top:2px solid #eee;margin-top:25px;padding-top:20px;\">\n      <h3 style=\"color:#cc0000;\">Recent Developments</h3>\n      <ul>\n        ${recent.map(r => `<li>${r}</li>`).join('')}\n      </ul>\n    </div>\n\n    <div style=\"border-top:2px solid #eee;margin-top:25px;padding-top:20px;\">\n      <h3 style=\"color:#cc0000;\">Sources</h3>\n      <ul>\n        ${sources.map(s => `\n          <li>\n            <strong>${s.title || 'Unnamed Source'}</strong><br>\n            <span style=\"color:#555;font-size:12px;\">${s.url || 'No URL provided'}</span>\n          </li>\n        `).join('')}\n      </ul>\n    </div>\n\n    <hr style=\"border:none;border-top:1px solid #ccc;margin:30px 0;\">\n    <div style=\"font-family:Arial, sans-serif;text-align:center;color:#666;\">\n      <h3 style=\"color:#cc0000;margin-bottom:5px;\">Confidentiality Notice:</h3>\n      <p style=\"font-size:12px;line-height:1.5;color:#777;max-width:600px;margin:0 auto;\">\n        This AI-generated report is intended for research purposes only and may include synthesized or interpreted data. \n        Please verify information before public use. Unauthorized distribution is prohibited.\n      </p>\n    </div>\n  </div>\n`;\n\n// Output HTML\nreturn [{ json: { html } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -816,
+        112
+      ],
+      "id": "d6e6d5c7-d58e-4103-96ea-db321f64032c",
+      "name": "mailFormat_Procesing"
+    },
+    {
+      "parameters": {
+        "sendTo": "paari24@gmail.com",
+        "subject": "error in the flow",
+        "message": "={{ $json.output }}\n\nname :{{ $('Edit Fields').item.json.name }}\ncustomer_mailid :{{ $('Edit Fields').item.json.customer_mailid }}\ncustomer_mobileno :{{ $('Edit Fields').item.json.customer_mobileno }}\ncustomer_companyname :{{ $('Edit Fields').item.json.customer_companyname }}\ncustomer_companyurl :{{ $('Edit Fields').item.json.customer_companyurl }}\nservices_required :{{ $('Edit Fields').item.json.services_required }}\ncustomer_message :{{ $('Edit Fields').item.json.customer_message }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -816,
+        304
+      ],
+      "id": "155b320c-0cca-456b-9560-ab6fdf298a6a",
+      "name": "fallbackEmail",
+      "webhookId": "d0a44aa8-80c1-4feb-9fb8-4e88145da29e",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "qX4b8LIs14nLT93k",
+          "name": "B24_mailaccount"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1840,
+        208
+      ],
+      "id": "8e2d981a-1960-46d4-b962-926f84d09ed8",
+      "name": "Telegram Trigger",
+      "webhookId": "b24d09b9-793f-489b-8b16-dd1ead9b2d81",
+      "credentials": {
+        "telegramApi": {
+          "id": "cYC2QnMXkpgdsfe6",
+          "name": "Boybabybot_bot"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "MainAgent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MainAgent": {
+      "main": [
+        [
+          {
+            "node": "parse_Ai_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "mailFormat_Procesing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "fallbackEmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        []
+      ]
+    },
+    "parse_Ai_Response": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "mailFormat_Procesing": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "MainAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8248ce16-0691-4f50-b717-5b80b2d2abec",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "391ccf06240767a70e415db25ca1487c5b245e4a473dd0cfcdd50bf42284853d"
+  },
+  "id": "LzgF43Iwiw4s8wTq",
+  "tags": []
+}
