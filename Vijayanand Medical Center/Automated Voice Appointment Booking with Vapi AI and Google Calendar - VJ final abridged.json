@@ -1,0 +1,356 @@
+{
+  "name": "Automated Voice Appointment Booking with Vapi AI and Google Calendar - VJ final abridged",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1fec2f61-2072-4d2b-b323-b20dc8be1eee",
+              "name": "timeZone",
+              "type": "string",
+              "value": "America/New_York"
+            },
+            {
+              "id": "4262429e-b497-4b14-88a0-c1747465cb2c",
+              "name": "workdayStartHour",
+              "type": "number",
+              "value": 9
+            },
+            {
+              "id": "d618f077-a077-43ad-9bb5-55eb21445947",
+              "name": "meetingDurationMinutes",
+              "type": "number",
+              "value": 30
+            },
+            {
+              "id": "67453847-1958-45e5-aaf1-a042d9bb1c29",
+              "name": "bookingCadenceMinutes",
+              "type": "number",
+              "value": 30
+            },
+            {
+              "id": "f166930f-a05f-4382-8017-6b3c94717840",
+              "name": "bufferBeforeMinutes",
+              "type": "number",
+              "value": 15
+            },
+            {
+              "id": "dee10f61-c71e-4377-80a3-69de66c8a73a",
+              "name": "bufferAfterMinutes",
+              "type": "number",
+              "value": 15
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "30a2f5b7-b9b8-477d-817c-e180192646d7",
+      "name": "1. CONFIGURATION (EDIT ME)",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        1712,
+        1008
+      ],
+      "typeVersion": 3.4,
+      "notes": "This node holds all the settings for your appointment setter's availability."
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "AI-Appointment-Setter-Template",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "774e305d-252f-4d54-a057-19aeb642e42b",
+      "name": "Webhook: Production URL = VAPI Server URL",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        1472,
+        1008
+      ],
+      "webhookId": "c5fc47d7-60b8-49b1-a7b7-4b40a9ee02a0",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "80297dae-adde-4206-a8c3-2b7f77c5b88c",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $('Webhook: Production URL = VAPI Server URL').item.json.body.message.toolCalls[0].function.name }}",
+                    "rightValue": "checkAvailability"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "checkAvailability"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "23430f94-763-403d-a7d6-eae05ad2b801",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $('Webhook: Production URL = VAPI Server URL').item.json.body.message.toolCalls[0].function.name }}",
+                    "rightValue": "bookAppointment"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "bookAppointment"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1f67cedc-9da7-4b7e-8286-6ee3358fd70a",
+      "name": "Route by Tool Name",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        1952,
+        1008
+      ],
+      "typeVersion": 3.2
+    },
+    {
+      "parameters": {
+        "jsCode": "const potentialSlots = [];\n\nconst config = $('1. CONFIGURATION (EDIT ME)').item.json;\n\nconst initialISO = $('Webhook: Production URL = VAPI Server URL').item.json.body.message.toolCalls[0].function.arguments.initialSearchDateTime;\n\nconst datePart = initialISO.split('T')[0];\nconst offsetPart = initialISO.slice(-6);\nconst startHourString = String(config.workdayStartHour).padStart(2, '0');\nconst endHourString = String(config.workdayEndHour).padStart(2, '0');\n\nconst workdayStartISO = `${datePart}T${startHourString}:00:00${offsetPart}`;\nconst workdayEndISO = `${datePart}T${endHourString}:00:00${offsetPart}`;\n\nlet currentSlot = new Date(workdayStartISO);\nconst endOfWorkday = new Date(workdayEndISO);\n\nwhile (currentSlot.getTime() < endOfWorkday.getTime()) {\n  const slotEnd = new Date(currentSlot.getTime() + config.bookingCadenceMinutes * 60000);\n  potentialSlots.push({\n    start: currentSlot.toISOString(),\n    end: slotEnd.toISOString(),\n  });\n  currentSlot = slotEnd;\n}\n\nreturn [{\n  json: {\n    ...config, \n    potentialSlots: potentialSlots\n  }\n}];"
+      },
+      "id": "ac181bae-191b-42a8-aedf-5ab53c040051",
+      "name": "Calculate Potential Slots (do not change)",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        2368,
+        912
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('Calculate Potential Slots (do not change)').item.json;\nconst potentialSlots = config.potentialSlots;\nconst busyEvents = $('2. Get Calendar Events (EDIT ME)').all();\nconst toolCallId = $('Webhook: Production URL = VAPI Server URL').first().json.body.message.toolCalls[0].id;\n\nconst busyIntervals = busyEvents\n  .filter(event => event.json.start && event.json.start.dateTime) \n  .map(event => {\n    const start = new Date(event.json.start.dateTime);\n    const end = new Date(event.json.end.dateTime);\n    const startWithBuffer = new Date(start.getTime() - config.bufferBeforeMinutes * 60000);\n    const endWithBuffer = new Date(end.getTime() + config.bufferAfterMinutes * 60000);\n    return { start: startWithBuffer, end: endWithBuffer };\n  });\n\nconst availableSlots = potentialSlots.filter(slot => {\n  const meetingStart = new Date(slot.start); \n  const meetingEnd = new Date(meetingStart.getTime() + config.meetingDurationMinutes * 60000);\n  if (meetingStart < new Date()) { return false; }\n  const isOverlapping = busyIntervals.some(busy => (meetingStart < busy.end) && (meetingEnd > busy.start));\n  return !isOverlapping;\n});\n\nconst formattedSlots = availableSlots.map(slot => {\n  const utcDate = new Date(slot.start); \n\n  const humanReadable = utcDate.toLocaleString('en-US', {\n    timeZone: config.timeZone,\n    weekday: 'long', month: 'long', day: 'numeric',\n    hour: 'numeric', minute: '2-digit', hour12: true,\n  });\n\n\n  const localFormatter = new Intl.DateTimeFormat('en-US', {\n    year: 'numeric', month: '2-digit', day: '2-digit',\n    hour: '2-digit', minute: '2-digit', second: '2-digit',\n    hourCycle: 'h23', \n    timeZone: config.timeZone\n  });\n\n  const localParts = localFormatter.formatToParts(utcDate);\n  let localYear, localMonth, localDay, localHour, localMinute, localSecond;\n\n  for (const part of localParts) {\n    switch (part.type) {\n      case 'year': localYear = part.value; break;\n      case 'month': localMonth = part.value; break;\n      case 'day': localDay = part.value; break;\n      case 'hour': localHour = part.value; break;\n      case 'minute': localMinute = part.value; break;\n      case 'second': localSecond = part.value; break;\n    }\n  }\n\n  const fakeUtcDateFromLocal = new Date(\n    `${localYear}-${localMonth}-${localDay}T${localHour}:${localMinute}:${localSecond}.000Z`\n  );\n\n  const offsetMillis = fakeUtcDateFromLocal.getTime() - utcDate.getTime();\n  const offsetMinutes = offsetMillis / 60000; \n\n  const absOffsetMinutes = Math.abs(offsetMinutes);\n  const offsetHours = Math.floor(absOffsetMinutes / 60);\n  const remainingOffsetMinutes = absOffsetMinutes % 60;\n\n  const offsetSign = offsetMinutes < 0 ? '-' : '+';\n\n  const isoOffset = `${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(remainingOffsetMinutes).padStart(2, '0')}`;\n\n  const isoDateTime = `${localYear}-${localMonth}-${localDay}T${localHour}:${localMinute}:${localSecond}${isoOffset}`;\n\n  return { humanReadable, isoDateTime };\n});\n\nreturn [{\n  json: {\n    toolCallId: toolCallId,\n    availableSlots: formattedSlots\n  }\n}];"
+      },
+      "id": "8e2cf90f-9f15-478b-9c4b-acae5c6ee2c9",
+      "name": "Filter for Available Slots (do not change)",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        2592,
+        912
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n  {\n    \"results\": [\n      {\n        \"toolCallId\": $json.toolCallId,\n        \"result\": JSON.stringify({ \"availableSlots\": $json.availableSlots })\n      }\n    ]\n  }\n}}",
+        "options": {}
+      },
+      "id": "d14d093c-b468-454f-85a4-815c7b99c287",
+      "name": "Respond with Available Times (do not change)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        2816,
+        912
+      ],
+      "typeVersion": 1.4
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "vijayanandak17@gmail.com",
+          "mode": "id"
+        },
+        "start": "={{ $('Webhook: Production URL = VAPI Server URL').item.json.body.message.toolCalls[0].function.arguments.startDateTime }}",
+        "end": "={{ $('Webhook: Production URL = VAPI Server URL').item.json.body.message.toolCalls[0].function.arguments.endDateTime }}",
+        "additionalFields": {
+          "description": "=Job Details:\nService Type: {{ $('Webhook: Production URL = VAPI Server URL').item.json.body.message.toolCalls[0].function.arguments.serviceType }}\nProperty Address: {{ $('Webhook: Production URL = VAPI Server URL').item.json.body.message.toolCalls[0].function.arguments.propertyAddress }}\n\nClient Contact:\nName: {{ $('Webhook: Production URL = VAPI Server URL').item.json.body.message.toolCalls[0].function.arguments.clientName }}\nPhone: {{ $('Webhook: Production URL = VAPI Server URL').item.json.body.message.customer.number }}\n\nCall Log Id:\n{{ $('Webhook: Production URL = VAPI Server URL').item.json.body.message.call.id }}",
+          "summary": "=Roof Inspection: {{ $('Webhook: Production URL = VAPI Server URL').item.json.body.message.toolCalls[0].function.arguments.clientName }}"
+        }
+      },
+      "id": "1f925858-22bb-4143-8a57-d37f10508858",
+      "name": "3. Book Appointment in Calendar (EDIT ME)",
+      "type": "n8n-nodes-base.googleCalendar",
+      "position": [
+        2160,
+        1104
+      ],
+      "retryOnFail": true,
+      "typeVersion": 1.3,
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "WBMp7o9gnOfI4Wqq",
+          "name": "Google n8n Calendar Oauth2 API"
+        }
+      },
+      "notes": "1. Select your Google Account from the 'Credential' dropdown.\n\n2. Select the **SAME** calendar you chose in the previous node to book the new appointment."
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "vijayanandak17@gmail.com",
+          "mode": "id"
+        },
+        "returnAll": true,
+        "timeMin": "={{ $('Webhook: Production URL = VAPI Server URL').item.json.body.message.toolCalls[0].function.arguments.initialSearchDateTime }}",
+        "timeMax": "={{ DateTime.fromISO($('Webhook: Production URL = VAPI Server URL').item.json.body.message.toolCalls[0].function.arguments.initialSearchDateTime).endOf('day').toISO() }}",
+        "options": {}
+      },
+      "id": "d147ba98-9086-4ae0-b5c8-43e8cd2eb8ba",
+      "name": "2. Get Calendar Events (EDIT ME)",
+      "type": "n8n-nodes-base.googleCalendar",
+      "position": [
+        2160,
+        912
+      ],
+      "retryOnFail": true,
+      "typeVersion": 1.3,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "WBMp7o9gnOfI4Wqq",
+          "name": "Google n8n Calendar Oauth2 API"
+        }
+      },
+      "notes": "1. Select your Google Account from the 'Credential' dropdown.\n\n2. Select the calendar you want to check for availability from the 'Calendar' dropdown list."
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"results\": [ { \"toolCallId\": $('Webhook: Production URL = VAPI Server URL').item.json.body.message.toolCalls[0].id, \"result\": \"The appointment has been successfully booked.\" } ] } }}",
+        "options": {}
+      },
+      "id": "4355474c-9edb-4a4f-891d-0a349c75dc43",
+      "name": "Booking Confirmation (do not change)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        2368,
+        1104
+      ],
+      "typeVersion": 1.4
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Route by Tool Name": {
+      "main": [
+        [
+          {
+            "node": "2. Get Calendar Events (EDIT ME)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "3. Book Appointment in Calendar (EDIT ME)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1. CONFIGURATION (EDIT ME)": {
+      "main": [
+        [
+          {
+            "node": "Route by Tool Name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Get Calendar Events (EDIT ME)": {
+      "main": [
+        [
+          {
+            "node": "Calculate Potential Slots (do not change)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. Book Appointment in Calendar (EDIT ME)": {
+      "main": [
+        [
+          {
+            "node": "Booking Confirmation (do not change)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Potential Slots (do not change)": {
+      "main": [
+        [
+          {
+            "node": "Filter for Available Slots (do not change)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: Production URL = VAPI Server URL": {
+      "main": [
+        [
+          {
+            "node": "1. CONFIGURATION (EDIT ME)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter for Available Slots (do not change)": {
+      "main": [
+        [
+          {
+            "node": "Respond with Available Times (do not change)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "fb2613ea-57b9-43e7-bbc0-66bc254b6658",
+  "meta": {
+    "templateId": "8972",
+    "instanceId": "115e390902a9688868052192407aa9ae130fbf662385cd2ab51971daa45a5014"
+  },
+  "id": "1VG76uyjZbzXAmOb",
+  "tags": []
+}
