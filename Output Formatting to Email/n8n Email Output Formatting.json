@@ -1,0 +1,176 @@
+{
+  "name": "n8n Email Output Formatting",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -512,
+        -112
+      ],
+      "id": "3c766f69-ee00-49a2-b05d-ed34f87c51fa",
+      "name": "When chat message received",
+      "webhookId": "584c0ebd-bd0a-4d1b-bd81-2d07b1212325"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are \"ResearchAgent\", an advanced AI research assistant integrated into an n8n workflow.\n\nYou can research and explain topics related to:\n- Artificial Intelligence (AI), Machine Learning (ML), and Deep Learning\n- Generative AI (LLMs, text-to-image, text-to-speech, etc.)\n- AI frameworks and tools (Flowise, LangChain, OpenAI, Anthropic, Hugging Face, MCP, etc.)\n- AI integrations, agents, context protocols, and reasoning systems\n- Workflow automation and orchestration tools (n8n, Zapier, Make, etc.)\n- Building AI workflows or automations using n8n or Flowise\n\nIf a user's question is unrelated to these areas, respond with:\n{\n  \"error\": \"This topic is outside my research domain. Please ask about AI, Generative AI, or workflow automation (like n8n or Flowise).\"\n}\n\nWhen the topic is valid, generate your response as a **single JSON object** with this structure:\n\n{\n  \"title\": \"Sample Title\",\n  \"short_description\": \"A concise description of the item or topic.\",\n  \"key_messages\": [\n    \"Message 1\",\n    \"Message 2\",\n    \"Message 3\",\n    \"Message 4\",\n    \"Message 5\"\n  ]\n}\n\n\nGuidelines:\n- Output only JSON (no Markdown, text, or explanations).\n- Use factual and recent information (2023–2025).\n- Prefer real and verifiable sources (official docs, GitHub, reputable news).\n- Be concise but informative — this content will be parsed and emailed automatically.\n- Do not hallucinate or make up URLs.\n\n\n\n{users message} : {{ $json.message.text }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -304,
+        -112
+      ],
+      "id": "16d304b4-c38b-472f-8836-c185112ad122",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -448,
+        96
+      ],
+      "id": "995613c0-5236-4c00-bb8e-fe870fccc25b",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "ReBbz3Dj85A9IIOr",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code Node (JavaScript)\n// This code takes an input array where each item has a stringified JSON inside `output`\n// and converts it into a structured JSON object.\n\nreturn $input.all().map(item => {\n  try {\n    // Parse the stringified JSON from the \"output\" field\n    const parsed = JSON.parse(item.json.output);\n    \n    // Return the structured object\n    return { json: parsed };\n  } catch (error) {\n    // Handle invalid JSON gracefully\n    return { json: { error: error.message, raw: item.json.output } };\n  }\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        48,
+        -112
+      ],
+      "id": "41a8bbe7-efaa-4561-a7b8-94b39f93c5e2",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ✅ Works with n8n-nodes-base.code version 2 (n8n 1.113.3)\n\n// Read input (use current item or provide static data)\nconst input = $input.item.json || {\n  title: $('When chat message received').first().json.chatInput,\n  short_description:\n    \"$input.first().json.short_description\",\n  key_messages: [\n$input.first().json.key_messages\n]\n};\n\n// Escape helper\nconst escapeHtml = (str = \"\") =>\n  String(str)\n    .replace(/&/g, \"&amp;\")\n    .replace(/</g, \"&lt;\")\n    .replace(/>/g, \"&gt;\")\n    .replace(/\"/g, \"&quot;\")\n    .replace(/'/g, \"&#39;\");\n\n// Generate HTML\nfunction generateProfileHTML(data) {\n  const { title, short_description, key_messages } = data;\n\n  const keyList = (Array.isArray(key_messages) && key_messages.length)\n    ? key_messages.map(msg => `<li>${escapeHtml(msg)}</li>`).join(\"\\n\")\n    : \"<li>No key messages provided.</li>\";\n\n  return `\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>${escapeHtml(title)}</title>\n  <style>\n    body {\n      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;\n      margin: 2rem auto;\n      padding: 1.5rem;\n      max-width: 800px;\n      line-height: 1.6;\n      color: #222;\n      background: beige;\n    }\n    article {\n      background: #D8E9FE;\n      border-radius: 8px;\n      padding: 2rem;\n      box-shadow: 0 2px 6px rgba(0,0,0,0.1);\n    }\n    h1 {\n      margin-top: 0;\n      font-size: 1.8rem;\n      color: #111;\n    }\n    p {\n      font-size: 1rem;\n      margin-bottom: 1rem;\n    }\n    ul {\n      padding-left: 1.5rem;\n      margin: 0;\n    }\n    li {\n      margin-bottom: 0.5rem;\n    }\n    footer {\n      margin-top: 2rem;\n      font-size: 0.9rem;\n      color: #666;\n      text-align: center;\n    }\n  </style>\n</head>\n<body>\n  <article>\n  <img src=\"https://img.pikbest.com/png-images/20241022/stealth-masked-hacker-gaming-logo-for-gamers_10991543.png!bw700\" width=\"50\" height=\"50\">\n    <br><br>\n    <h1>${escapeHtml(title)}</h1>\n        <p>${escapeHtml(short_description)}</p>\n    <h2 style=\"font-size:1.2rem; margin-top:1.5rem;\" align=\"left\">Key Messages</h2>\n    <ul>${keyList}</ul>\n    <footer>Generated dynamically by Vijayanand | ${new Date().getFullYear()}</footer>\n  </article>\n</body>\n</html>`.trim();\n}\n\n// ✅ Correct return format for n8n Code node\nconst htmlOutput = generateProfileHTML(input);\nreturn [{ json: { html: htmlOutput } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        -112
+      ],
+      "id": "396bb684-d58d-4331-9fdc-164b51de6c8b",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "sendTo": "vijayanandak17@gmail.com",
+        "subject": "=Your query:  {{ $('When chat message received').item.json.chatInput }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        464,
+        -96
+      ],
+      "id": "48cf0182-179b-4564-9d83-672e36f527bd",
+      "name": "Send a message",
+      "webhookId": "458e979f-c390-4708-9c3f-e0b5c6aa3330",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "s0YH16SM3pt2D6uZ",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "4767eb5a-2365-4aa2-9419-c5f7097da531",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "115e390902a9688868052192407aa9ae130fbf662385cd2ab51971daa45a5014"
+  },
+  "id": "VrkB45Cp1lXL9c7l",
+  "tags": []
+}
